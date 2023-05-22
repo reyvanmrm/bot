@@ -1,6 +1,5 @@
 import streamlit as st
 from dotenv import load_dotenv
-import pickle
 from PyPDF2 import PdfReader
 from streamlit_extras.add_vertical_space import add_vertical_space
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -47,14 +46,8 @@ def main():
         store_name = pdf.name[:-4]
         st.write(f'{store_name}')
  
-        if os.path.exists(f"{store_name}.pkl"):
-            with open(f"{store_name}.pkl", "rb") as f:
-                VectorStore = pickle.load(f)
-        else:
-            embeddings = OpenAIEmbeddings()
-            VectorStore = FAISS.from_texts(chunks, embedding=embeddings)
-            with open(f"{store_name}.pkl", "wb") as f:
-                pickle.dump(VectorStore, f)
+        embeddings = OpenAIEmbeddings()
+        VectorStore = FAISS.from_texts(chunks, embedding=embeddings)
  
         # Accept user questions/query
         query = st.text_input("Ask questions about your PDF file:")
