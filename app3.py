@@ -2,7 +2,7 @@ import requests
 import streamlit as st
 from dotenv import load_dotenv
 import pickle
-from PyPDF2 import PdfReader, PdfFileReader
+from PyPDF2 import PdfReader
 from streamlit_extras.add_vertical_space import add_vertical_space
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.embeddings.openai import OpenAIEmbeddings
@@ -12,6 +12,7 @@ from langchain.chains.question_answering import load_qa_chain
 from langchain.callbacks import get_openai_callback
 import os
 from io import BytesIO
+import tempfile
 
 with st.sidebar:
     st.title('LLM Chat App')
@@ -34,8 +35,10 @@ def main():
         pdf_reader = PdfReader(pdf)
     elif pdf_url != "":
         pdf_data = requests.get(pdf_url)
-        pdf_file = BytesIO(pdf_data.content)
-        pdf_reader = PdfFileReader(pdf_file)
+        pdf_file = tempfile.NamedTemporaryFile(delete=False)
+        pdf_file.write(pdf_data.content)
+        pdf_file.close()
+        pdf_reader = PdfReader(pdf_file.name)
 
     if 'pdf_reader' in locals():  # Make sure PDF has been uploaded or downloaded
         text = ""
