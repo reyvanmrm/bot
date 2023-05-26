@@ -31,6 +31,7 @@ def main():
     pdf_urls = st.text_input("Or, enter PDF URLs (separate URLs with a semicolon):")
     pdf_urls = [url.strip() for url in pdf_urls.split(';') if url.strip()]
     store_name = st.text_input("Enter a name for your PDFs:")
+    uploaded_pkl = st.file_uploader("Or, upload a previously saved .pkl file:", type='pkl')
 
     if not store_name: 
         store_name = 'multiple_pdfs'  # default name
@@ -57,25 +58,28 @@ def main():
             for page in pdf_reader.pages:
                 text += page.extract_text()
 
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,
-        chunk_overlap=200,
-        length_function=len
-    )
-    chunks = text_splitter.split_text(text=text)
-
-    if not chunks:
-        st.warning('No text extracted from the uploaded files. Please upload valid non-empty PDFs.')
-        return
-
-    if os.path.exists(f"{store_name}.pkl"):
-        with open(f"{store_name}.pkl", "rb") as f:
-            VectorStore, saved_pdf_urls = pickle.load(f)
+    if uploaded_pkl is not None:
+        VectorStore, saved_pdf_urls = pickle.load(uploaded_pkl)
     else:
-        embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
-        VectorStore = FAISS.from_texts(chunks, embedding=embeddings)
-        with open(f"{store_name}.pkl", "wb") as f:
-            pickle.dump((VectorStore, pdf_urls), f)
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1000,
+            chunk_overlap=200,
+            length_function=len
+        )
+        chunks = text_splitter.split_text(text=text)
+
+        if not chunks:
+            st.warning('No text extracted from the uploaded files. Please upload valid non-empty PDFs.')
+            return
+
+        if os.path.exists(f"{store_name}.pkl"):
+            with open(f"{store_name}.pkl", "rb") as f:
+                VectorStore, saved_pdf_urls = pickle.load(f)
+        else:
+            embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
+            VectorStore = FAISS.from_texts(chunks, embedding=embeddings)
+            with open(f"{store_name}.pkl", "wb") as f:
+                pickle.dump((VectorStore, pdf_urls), f)
 
     queries = st.text_input("Ask questions about your PDF files (separate questions with a semicolon):")
     queries = [query.strip() for query in queries.split(';')]
@@ -90,6 +94,15 @@ def main():
                 response = chain.run(input_documents=docs, question=query)
                 print(cb)
             st.write(response)
+
+    with open(f"{store_name}.pkl", "rb") as f:
+        data = f.read()
+        st.download_button(
+            label=f"Download {store_name}.pkl",
+            data=data,
+            file_name=f"{store_name}.pkl",
+            mime="application/octet-stream"
+        )
 
 if __name__ == '__main__':
     main()
