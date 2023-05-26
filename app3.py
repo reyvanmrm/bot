@@ -10,13 +10,14 @@ from langchain.llms import OpenAI
 from langchain.chains.question_answering import load_qa_chain
 from langchain.callbacks import get_openai_callback
 import os
+from io import BytesIO
 import tempfile
 
 with st.sidebar:
     st.title('LLM Chat App')
     st.markdown('''
     ## About
-    Upload your PDFs or input PDF URLs to chat with them
+    Upload your PDFs to talk
     ''')
 
 load_dotenv()
@@ -26,68 +27,78 @@ def main():
 
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-    uploaded_pdfs = st.file_uploader("Upload your PDFs", type='pdf', accept_multiple_files=True)
-    pdf_urls_input = st.text_input("Or, enter PDF URLs (separate URLs with a semicolon):")
+    pdfs = st.file_uploader("Upload your PDFs", type='pdf', accept_multiple_files=True)
+    pdf_urls = st.text_input("Or, enter PDF URLs (separate URLs with a semicolon):")
+    pdf_urls = [url.strip() for url in pdf_urls.split(';') if url.strip()]
     store_name = st.text_input("Enter a name for your PDFs:")
-    uploaded_pkl = st.file_uploader("Upload a saved .pkl file", type='pkl')
 
-    saved_pdf_urls = []
-    if uploaded_pkl is not None:
-        loaded_data = pickle.load(uploaded_pkl)
-        if isinstance(loaded_data, tuple) and len(loaded_data) == 2:
-            VectorStore, saved_pdf_urls = loaded_data
-        else:
-            VectorStore = loaded_data  # fallback for old .pkl files that don't include the URL list
-            saved_pdf_urls = []
-    else:
-        if pdf_urls_input != "":
-            pdf_urls = [url.strip() for url in pdf_urls_input.split(";")]
-            saved_pdf_urls.extend(pdf_urls)
-            pdfs = []
-            for pdf_url in pdf_urls:
-                pdf_data = requests.get(pdf_url)
-                pdf_file = tempfile.NamedTemporaryFile(delete=False)
-                pdf_file.write(pdf_data.content)
-                pdf_file.close()
-                pdfs.append(PdfReader(pdf_file.name))
-        else:
-            pdfs = [PdfReader(uploaded_pdf) for uploaded_pdf in uploaded_pdfs]
+    if not store_name: 
+        store_name = 'multiple_pdfs'  # default name
 
-        text = ""
+    st.write(f'{store_name}')
+
+    text = ""
+
+    if pdfs is not None:
         for pdf in pdfs:
-            for page in pdf.pages:
+            pdf_reader = PdfReader(pdf)
+            
+            for page in pdf_reader.pages:
                 text += page.extract_text()
 
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,
-            chunk_overlap=200,
-            length_function=len
-        )
-        chunks = text_splitter.split_text(text=text)
+    if pdf_urls:
+        for pdf_url in pdf_urls:
+            pdf_data = requests.get(pdf_url)
+            pdf_file = tempfile.NamedTemporaryFile(delete=False)
+            pdf_file.write(pdf_data.content)
+            pdf_file.close()
+            pdf_reader = PdfReader(pdf_file.name)
+            
+            for page in pdf_reader.pages:
+                text += page.extract_text()
 
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1000,
+        chunk_overlap=200,
+        length_function=len
+    )
+    chunks = text_splitter.split_text(text=text)
+
+    if not chunks:
+        st.warning('No text extracted from the uploaded files. Please upload valid non-empty PDFs.')
+        return
+
+    if os.path.exists(f"{store_name}.pkl"):
+        with open(f"{store_name}.pkl", "rb") as f:
+            VectorStore, saved_pdf_urls = pickle.load(f)
+    else:
         embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
         VectorStore = FAISS.from_texts(chunks, embedding=embeddings)
-
         with open(f"{store_name}.pkl", "wb") as f:
-            pickle.dump((VectorStore, saved_pdf_urls), f)
-
-    st.write(f'Loaded PDFs: {store_name}')
+            pickle.dump((VectorStore, pdf_urls), f)
 
     queries = st.text_input("Ask questions about your PDF files (separate questions with a semicolon):")
+    queries = [query.strip() for query in queries.split(';')]
 
-    for query in queries.split(';'):
-        docs = VectorStore.similarity_search(query=query.strip(), k=3)
+    for query in queries:
+        if query:
+            docs = VectorStore.similarity_search(query=query, k=3)
 
-        llm = OpenAI(model_name='text-davinci-003', api_key=OPENAI_API_KEY)
-        chain = load_qa_chain(llm=llm, chain_type="stuff")
-        with get_openai_callback() as cb:
-            response = chain.run(input_documents=docs, question=query.strip(), max_tokens=500)
-            print(cb)
-        st.write(response)
+            llm = OpenAI(model_name='text-davinci-003', api_key=OPENAI_API_KEY)
+            chain = load_qa_chain(llm=llm, chain_type="stuff")
+            with get_openai_callback() as cb:
+                response = chain.run(input_documents=docs, question=query)
+                print(cb)
+            st.write(response)
 
     with open(f"{store_name}.pkl", "rb") as f:
-        bytes = f.read()
-        st.download_button(label=f"Download {store_name}.pkl", data=bytes, file_name=f"{store_name}.pkl", mime='application/octet-stream')
+        data = f.read()
+        st.download_button(
+            label=f"Download {store_name}.pkl",
+            data=data,
+            file_name=f"{store_name}.pkl",
+            mime="application/octet-stream"
+        )
 
 if __name__ == '__main__':
     main()
