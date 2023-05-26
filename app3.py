@@ -30,6 +30,12 @@ def main():
     pdfs = st.file_uploader("Upload your PDFs", type='pdf', accept_multiple_files=True)
     pdf_urls = st.text_input("Or, enter PDF URLs (separate URLs with a comma):")
     pdf_urls = [url.strip() for url in pdf_urls.split(',') if url.strip()]
+    store_name = st.text_input("Enter a name for your PDFs:")
+
+    if not store_name: 
+        store_name = 'multiple_pdfs'  # default name
+
+    st.write(f'{store_name}')
 
     text = ""
 
@@ -62,9 +68,6 @@ def main():
         st.warning('No text extracted from the uploaded files. Please upload valid non-empty PDFs.')
         return
 
-    store_name = 'multiple_pdfs'
-    st.write(f'{store_name}')
-
     if os.path.exists(f"{store_name}.pkl"):
         with open(f"{store_name}.pkl", "rb") as f:
             VectorStore = pickle.load(f)
@@ -72,7 +75,7 @@ def main():
         embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
         VectorStore = FAISS.from_texts(chunks, embedding=embeddings)
         with open(f"{store_name}.pkl", "wb") as f:
-            pickle.dump(VectorStore, f)
+            pickle.dump((VectorStore, pdf_urls), f)
 
     queries = st.text_input("Ask questions about your PDF files (separate questions with a semicolon):")
     queries = [query.strip() for query in queries.split(';')]
@@ -90,4 +93,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
