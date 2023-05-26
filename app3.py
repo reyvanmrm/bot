@@ -28,8 +28,8 @@ def main():
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
     pdfs = st.file_uploader("Upload your PDFs", type='pdf', accept_multiple_files=True)
-    pdf_urls = st.text_input("Or, enter PDF URLs (separate URLs with a semicolon):")
-    pdf_urls = [url.strip() for url in pdf_urls.split(';') if url.strip()]
+    pdf_urls = st.text_input("Or, enter PDF URLs (separate URLs with a comma):")
+    pdf_urls = [url.strip() for url in pdf_urls.split(',') if url.strip()]
     store_name = st.text_input("Enter a name for your PDFs:")
 
     if not store_name: 
@@ -91,15 +91,7 @@ def main():
                 print(cb)
             st.write(response)
 
-    with open(f"{store_name}.pkl", "rb") as f:
-        data = f.read()
-        st.download_button(
-            label=f"Download {store_name}.pkl",
-            data=data,
-            file_name=f"{store_name}.pkl",
-            mime="application/octet-stream"
-        )
-
 if __name__ == '__main__':
     main()
+
 
