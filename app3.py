@@ -85,21 +85,5 @@ def main():
             docs = VectorStore.similarity_search(query=query, k=3)
 
             llm = OpenAI(model_name='text-davinci-003', api_key=OPENAI_API_KEY)
-            chain = load_qa_chain(llm=llm, chain_type="stuff")
-            with get_openai_callback() as cb:
-                response = chain.run(input_documents=docs, question=query)
-                print(cb)
-            st.write(response)
-
-    with open(f"{store_name}.pkl", "rb") as f:
-        data = f.read()
-        st.download_button(
-            label=f"Download {store_name}.pkl",
-            data=data,
-            file_name=f"{store_name}.pkl",
-            mime="application/octet-stream"
-        )
-
-if __name__ == '__main__':
-    main()
+            chain
 
