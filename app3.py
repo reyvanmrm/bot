@@ -37,16 +37,16 @@ def main():
             for page in pdf_reader.pages:
                 text += page.extract_text()
 
-   text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,
-        chunk_overlap=200,
-        length_function=len
-    )
-    chunks = text_splitter.split_text(text=text)
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1000,
+            chunk_overlap=200,
+            length_function=len
+        )
+        chunks = text_splitter.split_text(text=text)
 
-    if not chunks:
-        st.warning('No text extracted from the uploaded files. Please upload valid non-empty PDFs.')
-        return
+        if not chunks:
+            st.warning('No text extracted from the uploaded files. Please upload valid non-empty PDFs.')
+            return
 
         store_name = 'multiple_pdfs'
         st.write(f'{store_name}')
