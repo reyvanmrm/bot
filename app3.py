@@ -14,6 +14,24 @@ import os
 from io import BytesIO
 import tempfile
 
+# Session State (needed for session-wide persistent storage)
+import streamlit.report_thread as ReportThread
+from streamlit.server.server import Server
+
+def get_session():
+    ctx = ReportThread.get_report_ctx()
+    session_id = ctx.session_id
+    session_info = Server.get_current()._get_session_info(session_id)
+    return session_info.session
+
+def get_state():
+    session = get_session()
+    if not hasattr(session, '_state'):
+        session._state = {}
+    return session._state
+
+# ...
+
 with st.sidebar:
     st.title('LLM Chat App')
     st.markdown('''
@@ -30,6 +48,8 @@ def main():
 
     pdfs = st.file_uploader("Upload your PDFs", type='pdf', accept_multiple_files=True)
     text = ""
+
+    state = get_state()
 
     if pdfs is not None:
         for pdf in pdfs:
@@ -57,19 +77,12 @@ def main():
             with open(f"{store_name}.pkl", "wb") as f:
                 pickle.dump(VectorStore, f)
 
-        queries = st.text_input("Ask questions about your PDF files (separate questions with a semicolon):")
-        queries = [query.strip() for query in queries.split(';')]
+        state['VectorStore'] = VectorStore
 
-        for query in queries:
-            if query:
-                docs = VectorStore.similarity_search(query=query, k=3)
+    if 'VectorStore' in state:
+        query = st.text_input("Ask questions about your PDF files:")
 
-                llm = OpenAI(model_name='text-davinci-003', api_key=OPENAI_API_KEY)
-                chain = load_qa_chain(llm=llm, chain_type="stuff")
-                with get_openai_callback() as cb:
-                    response = chain.run(input_documents=docs, question=query)
-                    print(cb)
-                st.write(response)
+        if query:
+            docs = state['VectorStore'].similarity_search(query=query, k=3)
 
-if __name__ == '__main__':
-    main()
+            llm = OpenAI(model_name='text-davinci-003', api_key=OPENAI
