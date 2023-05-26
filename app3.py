@@ -3,7 +3,6 @@ import streamlit as st
 from dotenv import load_dotenv
 import pickle
 from PyPDF2 import PdfReader
-from streamlit_extras.add_vertical_space import add_vertical_space
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.vectorstores import FAISS
@@ -13,24 +12,6 @@ from langchain.callbacks import get_openai_callback
 import os
 from io import BytesIO
 import tempfile
-
-# Session State (needed for session-wide persistent storage)
-import streamlit.report_thread as ReportThread
-from streamlit.server.server import Server
-
-def get_session():
-    ctx = ReportThread.get_report_ctx()
-    session_id = ctx.session_id
-    session_info = Server.get_current()._get_session_info(session_id)
-    return session_info.session
-
-def get_state():
-    session = get_session()
-    if not hasattr(session, '_state'):
-        session._state = {}
-    return session._state
-
-# ...
 
 with st.sidebar:
     st.title('LLM Chat App')
@@ -48,8 +29,6 @@ def main():
 
     pdfs = st.file_uploader("Upload your PDFs", type='pdf', accept_multiple_files=True)
     text = ""
-
-    state = get_state()
 
     if pdfs is not None:
         for pdf in pdfs:
@@ -77,21 +56,19 @@ def main():
             with open(f"{store_name}.pkl", "wb") as f:
                 pickle.dump(VectorStore, f)
 
-        state['VectorStore'] = VectorStore
+        queries = st.text_input("Ask questions about your PDF files (separate questions with a semicolon):")
+        queries = [query.strip() for query in queries.split(';')]
 
-    if 'VectorStore' in state:
-        query = st.text_input("Ask questions about your PDF files:")
+        for query in queries:
+            if query:
+                docs = VectorStore.similarity_search(query=query, k=3)
 
-        if query:
-            docs = state['VectorStore'].similarity_search(query=query, k=3)
-
-            llm = OpenAI(model_name='text-davinci-003', api_key=OPENAI_API_KEY)
-            chain = load_qa_chain(llm=llm, chain_type="stuff")
-            with get_openai_callback() as cb:
-                response = chain.run(input_documents=docs, question=query)
-                print(cb)
-            st.write(response)
+                llm = OpenAI(model_name='text-davinci-003', api_key=OPENAI_API_KEY)
+                chain = load_qa_chain(llm=llm, chain_type="stuff")
+                with get_openai_callback() as cb:
+                    response = chain.run(input_documents=docs, question=query)
+                    print(cb)
+                st.write(response)
 
 if __name__ == '__main__':
     main()
-
