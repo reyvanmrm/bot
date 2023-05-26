@@ -70,7 +70,7 @@ def main():
 
     if os.path.exists(f"{store_name}.pkl"):
         with open(f"{store_name}.pkl", "rb") as f:
-        VectorStore, saved_pdf_urls = pickle.load(f)
+            VectorStore, saved_pdf_urls = pickle.load(f)
     else:
         embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
         VectorStore = FAISS.from_texts(chunks, embedding=embeddings)
