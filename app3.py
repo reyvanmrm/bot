@@ -91,7 +91,7 @@ def main():
             llm = OpenAI(model_name='text-davinci-003', api_key=OPENAI_API_KEY)
             chain = load_qa_chain(llm=llm, chain_type="stuff")
             with get_openai_callback() as cb:
-                response = chain.run(input_documents=docs, question=query)
+                response = chain.run(input_documents=docs, question=query, max_tokens=500)
                 print(cb)
             st.write(response)
 
@@ -106,3 +106,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
